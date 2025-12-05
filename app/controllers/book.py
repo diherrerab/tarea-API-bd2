@@ -45,12 +45,29 @@ class BookController(Controller):
         books_repo: BookRepository,
     ) -> Book:
         """Create a new book."""
-        # Validar que el año esté entre 1000 y el año actual
-        if not (1000 <= data.as_builtins()["published_year"] <= 2024):
+        book_data = data.as_builtins()
+        
+        if not (1000 <= book_data["published_year"] <= 2024):
             raise HTTPException(
                 detail="El año de publicación debe estar entre 1000 y 2024",
                 status_code=400,
             )
+        
+        stock = book_data.get("stock", 1)
+        if stock <= 0:
+            raise HTTPException(
+                detail="El stock debe ser mayor a 0",
+                status_code=400,
+            )
+        
+        language = book_data.get("language")
+        allowed_languages = ["es", "en", "fr", "de", "it", "pt"]
+        if language not in allowed_languages:
+            raise HTTPException(
+                detail=f"El idioma debe ser uno de: {', '.join(allowed_languages)}",
+                status_code=400,
+            )
+        
         return books_repo.add(data.create_instance())
 
     @patch("/{id:int}", dto=BookUpdateDTO)
@@ -61,8 +78,23 @@ class BookController(Controller):
         books_repo: BookRepository,
     ) -> Book:
         """Update a book by ID."""
-        book, _ = books_repo.get_and_update(match_fields="id", id=id, **data.as_builtins())
-
+        book_data = data.as_builtins()
+        
+        if "stock" in book_data and book_data["stock"] < 0:
+            raise HTTPException(
+                detail="El stock no puede ser negativo",
+                status_code=400,
+            )
+        
+        if "language" in book_data:
+            allowed_languages = ["es", "en", "fr", "de", "it", "pt"]
+            if book_data["language"] not in allowed_languages:
+                raise HTTPException(
+                    detail=f"El idioma debe ser uno de: {', '.join(allowed_languages)}",
+                    status_code=400,
+                )
+        
+        book, _ = books_repo.get_and_update(match_fields="id", id=id, **book_data)
         return book
 
     @delete("/{id:int}")
@@ -100,6 +132,47 @@ class BookController(Controller):
             LimitOffset(offset=0, limit=limit),
             order_by=Book.created_at.desc(),
         )
+    @get("/available")
+    async def get_available_books(self, books_repo: BookRepository) -> Sequence[Book]:
+            """Get books with stock > 0."""
+            return books_repo.get_available_books()
+
+    @get("/category/{category_id:int}")
+    async def get_books_by_category(
+        self,
+        category_id: int,
+        books_repo: BookRepository,
+    ) -> Sequence[Book]:
+        """Get books by category."""
+        return books_repo.find_by_category(category_id)
+
+    @get("/most-reviewed")
+    async def get_most_reviewed_books(
+        self,
+        limit: Annotated[int, Parameter(query="limit", default=10, ge=1, le=50)],
+        books_repo: BookRepository,
+    ) -> Sequence[Book]:
+        """Get most reviewed books."""
+        return books_repo.get_most_reviewed_books(limit)
+
+    @patch("/{book_id:int}/stock")
+    async def update_book_stock(
+        self,
+        book_id: int,
+        quantity: Annotated[int, Parameter(query="quantity")],
+        books_repo: BookRepository,
+    ) -> Book:
+        """Update book stock by quantity (can be positive or negative)."""
+        return books_repo.update_stock(book_id, quantity)
+
+    @get("/search/author")
+    async def search_books_by_author(
+        self,
+        author: Annotated[str, Parameter(query="author")],
+        books_repo: BookRepository,
+    ) -> Sequence[Book]:
+        """Search books by author name (partial match)."""
+        return books_repo.search_by_author(author)
 
     @get("/stats")
     async def get_book_stats(
