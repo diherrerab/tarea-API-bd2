@@ -66,8 +66,8 @@ Esta tarea implementó funcionalidades avanzadas para el sistema de gestión de 
 - Métodos de búsqueda y filtrado en repositorios
 - Base de datos inicial con datos de ejemplo
 
-| Punto | Requisito | Estado | Observaciones |
-|-------|-----------|--------|---------------|
+| Punto | Requisito | Estado |
+|-------|-----------|--------|
 | 1 | Crear modelo Category con relación many-to-many a Book | ✅ Cumplido 
 | 2 | Crear modelo Review para reseñas de libros | ✅ Cumplido 
 | 3 | Actualizar modelo Book con inventario y descripción | ✅ Cumplido 
